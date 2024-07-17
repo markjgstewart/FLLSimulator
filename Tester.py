@@ -14,7 +14,7 @@ HEIGHT=600
 
 car=[50,500]
 carW=40
-carH=60
+carH=60	#this is the width
 hammerW=20
 hammer=[0,0]
 carAngleRad=0
@@ -59,17 +59,26 @@ def checkBounds():
 			time.sleep(2)
 			boardGUI.destroy()
 			sys.exit("ending program")
-	
+def avg(x,y):
+	return (x+y)/2	
+
 def redraw():
 	canvas.delete("cart")
 	canvas.delete("leftCS")
 	canvas.delete("rightCS")
 	canvas.delete("hammer")
 	canvas.delete("line")
+	canvas.delete("leftWheel")
+	canvas.delete("rightWheel")
 	setCorners()
 	canvas.create_polygon(corner[0][0],corner[0][1],corner[1][0],corner[1][1],corner[2][0],corner[2][1],corner[3][0],corner[3][1],fill='green',tag='cart')
 	canvas.create_oval(corner[2][0]-3,corner[2][1]-3,corner[2][0]+3,corner[2][1]+3,fill='blue',tag='rightCS')
 	canvas.create_oval(corner[3][0]-3,corner[3][1]-3,corner[3][0]+3,corner[3][1]+3,fill='red',tag='leftCS')
+
+	leftWheel = [avg(corner[2][0],corner[1][0]),avg(corner[2][1],corner[1][1])]
+	rightWheel =[avg(corner[0][0],corner[3][0]),avg(corner[0][1],corner[3][1])]
+	canvas.create_oval(leftWheel[0]-3,leftWheel[1]-3,leftWheel[0]+3,leftWheel[1]+3,fill='yellow',tag='leftWheel')
+	canvas.create_oval(rightWheel[0]-3,rightWheel[1]-3,rightWheel[0]+3,rightWheel[1]+3,fill='yellow',tag='rightWheel')
 
 	canvas.create_polygon(cornerHammer[0][0],cornerHammer[0][1],cornerHammer[1][0],cornerHammer[1][1],cornerHammer[2][0],cornerHammer[2][1],cornerHammer[3][0],cornerHammer[3][1],fill='black',tag='hammer')
 	canvas.create_line(hammer[0],hammer[1],car[0],car[1],width=3,tag='line')
@@ -174,23 +183,52 @@ class Port:
 	S1=3 #left
 	S2=2 #right
 	S3=1 #IR sensor
-	A=0
-	B=1
-	C=2
+	A=0 #left motor
+	B=1 #right motor
+	C=2 #small motor
+
+def shiftCar(car, a):
+	#print("car angle:",carAngleRad*180/3.14)
+	#print("car x,y",car[0]," ",car[1])
+	car[0]=car[0]+a*(carH/2)*math.cos(math.pi/2+carAngleRad) #car angle defined oddly because y is down
+	car[1]=car[1]+a*(carH/2)*math.sin(math.pi/2+carAngleRad)
+
 class Motor:
-	def __init__(self, pA):
-		print("initialize motor")
+	def __init__(self, port):
+		self.motorType= port
+		print("initialize motor: ",self.motorType)
 	def turn(self, angleDeg):
-		global hammerAngleRad, hammer, box, boxColor
-		for i in range(10):
-			hammerAngleRad=hammerAngleRad+(angleDeg+random.randint(-3,3))*0.01745/10
-			time.sleep(0.1)
+		global hammerAngleRad, hammer, box, boxColor, carAngleRad
+		if self.motorType==Port.C:		
+			for i in range(10):
+				hammerAngleRad=hammerAngleRad+(angleDeg+random.randint(-3,3))*0.01745/10
+				time.sleep(0.1)
+				redraw()
 			redraw()
-		redraw()
-		#mission specific code, check objective boxes, needs to be only for small motor
-		if hammerAngleRad < (30*0.0175) and hammerAngleRad>0 and angleDeg < 0:		
-			for i in range(len(box)):
-				error = (hammer[0]-box[i][0])*(hammer[0]-box[i][0])+(hammer[1]-box[i][1])*(hammer[1]-box[i][1])
-				if error<200:
-					boxColor[i]='yellow'
+			#mission specific code, check objective boxes, needs to be only for small motor
+			if hammerAngleRad < (30*0.0175) and hammerAngleRad>0 and angleDeg < 0:		
+				for i in range(len(box)):
+					error = (hammer[0]-box[i][0])*(hammer[0]-box[i][0])+(hammer[1]-box[i][1])*(hammer[1]-box[i][1])
+					if error<200:
+						boxColor[i]='yellow'
+		if self.motorType==Port.A:
+			for i in range(10): #break turn into 10 pieces
+				shiftCar(car, 1)
+				carAngleRad=carAngleRad+(angleDeg+random.randint(-3,3))*0.01745/10
+				shiftCar(car, -1)
+				redraw()	
+				time.sleep(.05)
+				
+			#print("turning...")
+			redraw()
+		if self.motorType==Port.B:
+			for i in range(10): #break turn into 10 pieces
+				shiftCar(car, -1)
+				carAngleRad=carAngleRad+(-angleDeg+random.randint(-3,3))*0.01745/10
+				shiftCar(car, 1)
+				redraw()	
+				time.sleep(.05)
+				
+			#print("turning...")
+			redraw()
 
